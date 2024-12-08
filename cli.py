@@ -12,7 +12,7 @@ from rich.table import Table
 
 from mcp_telegram import server
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
 
 
