@@ -15,7 +15,7 @@ requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
-dev = ["mypy>=1.13.0"]
+dev = ["mypy>=1.13.0", "typer>=0.15.0"]
 
 [project.scripts]
 mcp-telegram-connect = "mcp_telegram.telegram:connect"

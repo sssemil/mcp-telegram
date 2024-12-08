@@ -9,6 +9,7 @@
   - [Configuration](#configuration)
     - [Claude Desktop Configuration](#claude-desktop-configuration)
     - [Telegram Configuration](#telegram-configuration)
+  - [Development](#development)
 
 ## About
 
@@ -110,3 +111,46 @@ Before working with Telegram’s API, you need to get your own API ID and hash:
 1. Click under API Development tools.
 1. A 'Create new application' window will appear. Fill in your application details. There is no need to enter any URL, and only the first two fields (App title and Short name) can currently be changed later.
 1. Click on 'Create application' at the end. Remember that your API hash is secret and Telegram won’t let you revoke it. __Don’t post it anywhere!__
+
+## Development
+
+Tools can be added to the `src/mcp_telegram/tools.py` file.
+
+How to add a new tool:
+
+1. Create a new class that inherits from ToolArgs
+
+   ```python
+   class NewTool(ToolArgs):
+       """Description of the new tool."""
+       pass
+   ```
+
+   Attributes of the class will be used as arguments for the tool.
+   The class docstring will be used as the tool description.
+
+1. Implement the tool_runner function for the new class
+
+   ```python
+   @tool_runner.register
+   async def new_tool(args: NewTool) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+       pass
+   ```
+
+   The function should return a sequence of TextContent, ImageContent or EmbeddedResource.
+   The function should be async and accept a single argument of the new class.
+
+1. Done! Restart the client and the new tool should be available.
+
+Validation can accomplished either through Claude Desktop or by running the tool directly.
+
+To run the tool directly, use the following command:
+
+```bash
+
+# List all available tools
+uv run cli.py list-tools
+
+# Run the concrete tool
+uv run cli.py call-tool --name ListDialogs --arguments '{"unread": true}'
+```
