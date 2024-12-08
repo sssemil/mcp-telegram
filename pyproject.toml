@@ -1,0 +1,28 @@
+[project]
+name = "mcp-telegram"
+version = "0.0.1"
+description = "MCP server to work with Telegram through MTProto"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.1.0",
+  "telethon>=1.23.0",
+  "pydantic>=2.0.0",
+  "pydantic-settings>=2.6.0",
+]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = ["mypy>=1.13.0"]
+
+[project.scripts]
+mcp-telegram-connect = "mcp_telegram.telegram:connect"
+mcp-telegram-server = "mcp_telegram.server:main"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
