@@ -12,7 +12,7 @@ from mcp.types import (
     Tool,
 )
 from pydantic import BaseModel, ConfigDict
-from telethon import TelegramClient, custom  # type: ignore[import-untyped]
+from telethon import TelegramClient, custom, functions, types  # type: ignore[import-untyped]
 
 from .telegram import create_client
 
@@ -65,6 +65,9 @@ def tool_args(tool: Tool, *args, **kwargs) -> ToolArgs:  # noqa: ANN002, ANN003
     return sys.modules[__name__].__dict__[tool.name](*args, **kwargs)
 
 
+### ListDialogs ###
+
+
 class ListDialogs(ToolArgs):
     """List available dialogs, chats and channels."""
 
@@ -86,6 +89,69 @@ async def list_dialogs(
         async for dialog in client.iter_dialogs(archived=args.archived, ignore_pinned=args.ignore_pinned):
             if args.unread and dialog.unread_count == 0:
                 continue
-            response.append(TextContent(type="text", text=dialog.title))
+            msg = (
+                f"name='{dialog.name}' id={dialog.id} "
+                f"unread={dialog.unread_count} mentions={dialog.unread_mentions_count}"
+            )
+            response.append(TextContent(type="text", text=msg))
+
+    return response
+
+
+### ListMessages ###
+
+
+class ListMessages(ToolArgs):
+    """
+    List messages in a given dialog, chat or channel. The messages are listed in order from newest to oldest.
+
+    If `unread` is set to `True`, only unread messages will be listed. Once a message is read, it will not be
+    listed again.
+
+    If `limit` is set, only the last `limit` messages will be listed. If `unread` is set, the limit will be
+    the minimum between the unread messages and the limit.
+    """
+
+    dialog_id: int
+    unread: bool = False
+    limit: int = 100
+
+
+@tool_runner.register
+async def list_messages(
+    args: ListMessages,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[ListMessages] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        result = await client(functions.messages.GetPeerDialogsRequest(peers=[args.dialog_id]))
+        if not result:
+            raise ValueError(f"Channel not found: {args.dialog_id}")
+
+        if not isinstance(result, types.messages.PeerDialogs):
+            raise TypeError(f"Unexpected result: {type(result)}")
+
+        for dialog in result.dialogs:
+            logger.debug("dialog: %s", dialog)
+        for message in result.messages:
+            logger.debug("message: %s", message)
+
+        iter_messages_args: dict[str, t.Any] = {
+            "entity": args.dialog_id,
+            "reverse": False,
+        }
+        if args.unread:
+            iter_messages_args["limit"] = min(dialog.unread_count, args.limit)
+        else:
+            iter_messages_args["limit"] = args.limit
+
+        logger.debug("iter_messages_args: %s", iter_messages_args)
+        async for message in client.iter_messages(**iter_messages_args):
+            logger.debug("message: %s", type(message))
+            if isinstance(message, custom.Message) and message.text:
+                logger.debug("message: %s", message.text)
+                response.append(TextContent(type="text", text=message.text))
 
     return response
