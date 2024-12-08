@@ -4,6 +4,7 @@
   - [About](#about)
   - [What is MCP?](#what-is-mcp)
   - [What does this server do?](#what-does-this-server-do)
+  - [Practical use cases](#practical-use-cases)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Configuration](#configuration)
@@ -23,7 +24,20 @@ The Model Context Protocol (MCP) is a system that lets AI apps, like Claude Desk
 
 As of not, the server provides read-only access to the Telegram API.
 
-*The list of actions will be provded soon.*
+- [x] Get the list of dialogs (chats, channels, groups)
+- [x] Get the list of (unread) messages in the given dialog
+- [ ] Mark chanel as read
+- [ ] Retrieve messages by date and time
+- [ ] Download media files
+- [ ] Get the list of contacts
+- [ ] Draft a message
+- ...
+
+## Practical use cases
+
+- [x] Create a summary of the unread messages
+- [ ] Find contacts with upcoming birthdays and schedule a greeting
+- [ ] Find discussions on a given topic, summarize them and provide a list of links
 
 ## Prerequisites
 
