@@ -24,10 +24,9 @@ app = Server("mcp-telegram")
 
 @cache
 def enumerate_available_tools() -> t.Generator[tuple[str, Tool], t.Any, None]:
-    for _, obj in inspect.getmembers(tools, inspect.isclass):
-        if issubclass(obj, tools.ToolArgs) and obj != tools.ToolArgs:
-            logger.debug("Found tool: %s", obj)
-            tool_args = obj()
+    for _, tool_args in inspect.getmembers(tools, inspect.isclass):
+        if issubclass(tool_args, tools.ToolArgs) and tool_args != tools.ToolArgs:
+            logger.debug("Found tool: %s", tool_args)
             description = tools.tool_description(tool_args)
             yield description.name, description
 

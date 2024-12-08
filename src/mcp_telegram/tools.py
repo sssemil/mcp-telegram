@@ -53,10 +53,10 @@ async def tool_runner(
     raise NotImplementedError(f"Unsupported type: {type(args)}")
 
 
-def tool_description(args: ToolArgs) -> Tool:
+def tool_description(args: type[ToolArgs]) -> Tool:
     return Tool(
-        name=args.__class__.__name__,
-        description=args.__class__.__doc__,
+        name=args.__name__,
+        description=args.__doc__,
         inputSchema=args.model_json_schema(),
     )
 
