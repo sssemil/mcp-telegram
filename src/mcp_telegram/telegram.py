@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings
 from telethon import TelegramClient  # type: ignore[import-untyped]
 from telethon.errors.rpcerrorlist import SessionPasswordNeededError  # type: ignore[import-untyped]
 from telethon.tl.types import User  # type: ignore[import-untyped]
+from xdg_base_dirs import xdg_state_home  # type: ignore[import-error]
 
 
 class TelegramSettings(BaseSettings):
@@ -60,4 +61,6 @@ def create_client(
         config = TelegramSettings(api_id=api_id, api_hash=api_hash)
     else:
         config = TelegramSettings()
-    return TelegramClient(session_name, config.api_id, config.api_hash, base_logger="telethon")
+    state_home = xdg_state_home() / "mcp-telegram"
+    state_home.mkdir(parents=True, exist_ok=True)
+    return TelegramClient(state_home / session_name, config.api_id, config.api_hash, base_logger="telethon")

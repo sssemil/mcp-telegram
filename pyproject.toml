@@ -9,6 +9,7 @@ dependencies = [
   "pydantic>=2.0.0",
   "pydantic-settings>=2.6.0",
   "typer>=0.15.0",
+  "xdg-base-dirs>=6.0.0",
 ]
 
 [build-system]
