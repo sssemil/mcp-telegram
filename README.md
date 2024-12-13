@@ -11,6 +11,10 @@
     - [Claude Desktop Configuration](#claude-desktop-configuration)
     - [Telegram Configuration](#telegram-configuration)
   - [Development](#development)
+    - [Debugging the server in terminal](#debugging-the-server-in-terminal)
+    - [Debugging the server in the Inspector](#debugging-the-server-in-the-inspector)
+  - [Troubleshooting](#troubleshooting)
+    - [Message 'Could not connect to MCP server mcp-telegram'](#message-could-not-connect-to-mcp-server-mcp-telegram)
 
 ## About
 
@@ -100,7 +104,7 @@ Configure Claude Desktop to recognize the Exa MCP server.
     {
       "mcpServers": {
         "mcp-telegram": {
-            "command": "$HOME/.cargo/bin/uv",
+            "command": "uv",
             "args": [
               "--directory",
               "<path-to-cloned-repo>",
@@ -158,6 +162,8 @@ How to add a new tool:
 
 Validation can accomplished either through Claude Desktop or by running the tool directly.
 
+### Debugging the server in terminal
+
 To run the tool directly, use the following command:
 
 ```bash
@@ -168,3 +174,22 @@ uv run cli.py list-tools
 # Run the concrete tool
 uv run cli.py call-tool --name ListDialogs --arguments '{"unread": true}'
 ```
+
+### Debugging the server in the Inspector
+
+The MCP inspector is a tool that helps to debug the server using fancy UI. To run it, use the following command:
+
+```bash
+npx @modelcontextprotocol/inspector uv run mcp-telegram-server
+```
+
+## Troubleshooting
+
+### Message 'Could not connect to MCP server mcp-telegram'
+
+If you see the message 'Could not connect to MCP server mcp-telegram' in Claude Desktop, it means that the server configuration is incorrect.
+
+Try the following:
+
+- Use the full path to the `uv` binary in the configuration file
+- Check the path to the cloned repository in the configuration file
