@@ -18,7 +18,11 @@
 
 ## About
 
-The server is a bridge between the Telegram API and the AI assistant. The server is a Python application that uses the [MCP](https://modelcontextprotocol.io).
+The server is a bridge between the Telegram API and the AI assistants and is based on the [Model Context Protocol](https://modelcontextprotocol.io).
+
+> [!IMPORTANT]
+> Ensure that you have read and understood the [Telegram API Terms of Service](https://core.telegram.org/api/terms) before using this server.
+> Any misuse of the Telegram API may result in the suspension of your account.
 
 ## What is MCP?
 
