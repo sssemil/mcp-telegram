@@ -8,9 +8,11 @@
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Configuration](#configuration)
+    - [Telegram API Configuration](#telegram-api-configuration)
     - [Claude Desktop Configuration](#claude-desktop-configuration)
     - [Telegram Configuration](#telegram-configuration)
   - [Development](#development)
+    - [Getting started](#getting-started)
     - [Debugging the server in terminal](#debugging-the-server-in-terminal)
     - [Debugging the server in the Inspector](#debugging-the-server-in-the-inspector)
   - [Troubleshooting](#troubleshooting)
@@ -53,43 +55,35 @@ As of not, the server provides read-only access to the Telegram API.
 
 ## Installation
 
-1. Clone the repository
-2. Install the dependencies
+```bash
+uv tool install git+https://github.com/sparfenyuk/mcp-telegram
+```
+
+> [!NOTE]
+> If you have already installed the server, you can update it using `uv tool upgrade --reinstall` command.
+
+> [!NOTE]
+> If you want to delete the server, use the `uv tool uninstall mcp-telegram` command.
+
+## Configuration
+
+### Telegram API Configuration
+
+Before you can use the server, you need to connect to the Telegram API.
+
+1. Get the API ID and hash from [Telegram API](https://my.telegram.org/auth)
+2. Run the following command:
 
    ```bash
-   uv sync
-   ```
-
-3. Set environment variables
-
-   Get the API ID and hash from [Telegram API](https://my.telegram.org/auth)
-
-   > __Note:__
-   > See [Telegram Configuration](#telegram-configuration) for more details
-
-   Create a new file called `.env` in the root of the repository with the following lines:
-
-     ```bash
-     TELEGRAM_API_ID=<your-api-id-here>
-     TELEGRAM_API_HASH=<your-api-hash-here>
-     TELEGRAM_PHONE_NUMBER=<your-phone-number-here>
-     ```
-
-4. Connect to the Telegram API
-
-   ```bash
-   uv run mcp-telegram-connect
+   mcp-telegram sign-in --api-id <your-api-id> --api-hash <your-api-hash> --phone-number <your-phone-number>
    ```
 
    Enter the code you received from Telegram to connect to the API.
 
    The password may be required if you have two-factor authentication enabled.
 
-5. Done!
-
-   The server is now connected to the Telegram API.
-
-## Configuration
+> [!NOTE]
+> To log out from the Telegram API, use the `mcp-telegram logout` command.
 
 ### Claude Desktop Configuration
 
@@ -108,22 +102,16 @@ Configure Claude Desktop to recognize the Exa MCP server.
     {
       "mcpServers": {
         "mcp-telegram": {
-            "command": "uv",
-            "args": [
-              "--directory",
-              "<path-to-cloned-repo>",
-              "run",
-              "mcp-telegram-server"
-            ]
+            "command": "mcp-server",
+            "env": {
+              "TELEGRAM_API_ID": "<your-api-id>",
+              "TELEGRAM_API_HASH": "<your-api-hash>",
+            },
           }
         }
       }
     }
     ```
-
-    Replace `<path-to-cloned-repo>` with the path to the cloned repository.
-
-    Ensure that the `command` points to the `uv` binary.
 
 ### Telegram Configuration
 
@@ -135,6 +123,21 @@ Before working with Telegram’s API, you need to get your own API ID and hash:
 1. Click on 'Create application' at the end. Remember that your API hash is secret and Telegram won’t let you revoke it. __Don’t post it anywhere!__
 
 ## Development
+
+### Getting started
+
+1. Clone the repository
+2. Install the dependencies
+
+   ```bash
+   uv sync
+   ```
+
+3. Run the server
+
+   ```bash
+   uv run mcp-telegram --help
+   ```
 
 Tools can be added to the `src/mcp_telegram/tools.py` file.
 
@@ -151,7 +154,7 @@ How to add a new tool:
    Attributes of the class will be used as arguments for the tool.
    The class docstring will be used as the tool description.
 
-1. Implement the tool_runner function for the new class
+2. Implement the tool_runner function for the new class
 
    ```python
    @tool_runner.register
@@ -162,7 +165,7 @@ How to add a new tool:
    The function should return a sequence of TextContent, ImageContent or EmbeddedResource.
    The function should be async and accept a single argument of the new class.
 
-1. Done! Restart the client and the new tool should be available.
+3. Done! Restart the client and the new tool should be available.
 
 Validation can accomplished either through Claude Desktop or by running the tool directly.
 
@@ -184,8 +187,11 @@ uv run cli.py call-tool --name ListDialogs --arguments '{"unread": true}'
 The MCP inspector is a tool that helps to debug the server using fancy UI. To run it, use the following command:
 
 ```bash
-npx @modelcontextprotocol/inspector uv run mcp-telegram-server
+npx @modelcontextprotocol/inspector uv run mcp-telegram
 ```
+
+> [!WARNING]
+> Do not forget to define Environment Variables TELEGRAM_API_ID and TELEGRAM_API_HASH in the inspector.
 
 ## Troubleshooting
 

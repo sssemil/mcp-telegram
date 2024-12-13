@@ -147,12 +147,12 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "telethon" },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
-    { name = "typer" },
 ]
 
 [package.metadata]
@@ -161,13 +161,11 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "telethon", specifier = ">=1.23.0" },
+    { name = "typer", specifier = ">=0.15.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "mypy", specifier = ">=1.13.0" },
-    { name = "typer", specifier = ">=0.15.0" },
-]
+dev = [{ name = "mypy", specifier = ">=1.13.0" }]
 
 [[package]]
 name = "mdurl"

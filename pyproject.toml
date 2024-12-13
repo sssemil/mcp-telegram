@@ -8,6 +8,7 @@ dependencies = [
   "telethon>=1.23.0",
   "pydantic>=2.0.0",
   "pydantic-settings>=2.6.0",
+  "typer>=0.15.0",
 ]
 
 [build-system]
@@ -15,11 +16,11 @@ requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
-dev = ["mypy>=1.13.0", "typer>=0.15.0"]
+dev = ["mypy>=1.13.0"]
 
 [project.scripts]
-mcp-telegram-connect = "mcp_telegram.telegram:connect"
-mcp-telegram-server = "mcp_telegram.server:main"
+mcp-telegram = "mcp_telegram:app"
+mcp-telegram-server = "mcp_telegram:app" # backward compatibility
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
