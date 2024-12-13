@@ -11,6 +11,9 @@ from mcp.server import Server
 from mcp.types import (
     EmbeddedResource,
     ImageContent,
+    Prompt,
+    Resource,
+    ResourceTemplate,
     TextContent,
     Tool,
 )
@@ -34,10 +37,33 @@ def enumerate_available_tools() -> t.Generator[tuple[str, Tool], t.Any, None]:
 mapping: dict[str, Tool] = dict(enumerate_available_tools())
 
 
+@app.list_prompts()
+async def list_prompts() -> list[Prompt]:
+    """List available prompts."""
+    return []
+
+
+@app.list_resources()
+async def list_resources() -> list[Resource]:
+    """List available resources."""
+    return []
+
+
 @app.list_tools()
 async def list_tools() -> list[Tool]:
     """List available tools."""
     return list(mapping.values())
+
+
+@app.list_resource_templates()
+async def list_resource_templates() -> list[ResourceTemplate]:
+    """List available resource templates."""
+    return []
+
+
+@app.progress_notification()
+async def progress_notification(pogress: str | int, p: float, s: float | None) -> None:
+    """Progress notification."""
 
 
 @app.call_tool()
