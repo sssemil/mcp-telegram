@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.1.1](https://github.com/sparfenyuk/mcp-telegram/compare/3f5b014751a09914b3dd2f47a9908a4de73af0ac..v0.1.1) - 2024-12-13
+#### Bug Fixes
+- improve interaction with the server - ([d9005ef](https://github.com/sparfenyuk/mcp-telegram/commit/d9005ef0f100164a642cb966703155e5a3f84f9f)) - [@sparfenyuk](https://github.com/sparfenyuk)
+- add missing methods to complete impl of  mcp interface - ([3f5b014](https://github.com/sparfenyuk/mcp-telegram/commit/3f5b014751a09914b3dd2f47a9908a4de73af0ac)) - [@sparfenyuk](https://github.com/sparfenyuk)
+#### Documentation
+- add heads-up about tg api - ([fb68abf](https://github.com/sparfenyuk/mcp-telegram/commit/fb68abfb6f50a5571f3fc5ef7b5435c833d91649)) - [@sparfenyuk](https://github.com/sparfenyuk)
+- update readme - ([395be1c](https://github.com/sparfenyuk/mcp-telegram/commit/395be1c32d71c218dd78546c2bfb83ce71d0c79e)) - [@sparfenyuk](https://github.com/sparfenyuk)
+
+- - -
+
 ## [v0.1.0](https://github.com/sparfenyuk/mcp-telegram/compare/75e19c89a6d286dbce6692df97b632fbd13b91d2..v0.1.0) - 2024-12-08
 #### Bug Fixes
 - don't construct models during tools discovery - ([483bdb2](https://github.com/sparfenyuk/mcp-telegram/commit/483bdb28895453c245a223dd1dccfa1ee855c5f0)) - [@sparfenyuk](https://github.com/sparfenyuk)
