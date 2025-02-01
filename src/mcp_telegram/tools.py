@@ -665,6 +665,210 @@ async def send_video(
     return response
 
 
+### DownloadMedia ###
+
+
+class DownloadMedia(ToolArgs):
+    """
+    Download media from a message.
+    
+    Downloads the media attachment from a specific message and saves it to a specified path.
+    If no path is provided, the file will be saved with its original name in the current directory.
+    """
+
+    dialog_id: int
+    message_id: int
+    output_path: str | None = None  # If None, saves in current directory with original filename
+    force_document: bool = False  # If True, will download as document even if it's a photo/video
+
+
+@tool_runner.register
+async def download_media(
+    args: DownloadMedia,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[DownloadMedia] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Get the message first
+            message = await client.get_messages(args.dialog_id, ids=args.message_id)
+            if not message or not message.media:
+                response.append(TextContent(type="text", 
+                    text="No media found in the specified message"))
+                return response
+
+            # Download the media
+            path = await message.download_media(
+                file=args.output_path,
+                force_document=args.force_document
+            )
+            
+            if path:
+                response.append(TextContent(type="text", 
+                    text=f"Media downloaded successfully to: {path}"))
+            else:
+                response.append(TextContent(type="text", 
+                    text="Failed to download media: no path returned"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to download media: {str(e)}"))
+
+    return response
+
+
+### SendSticker ###
+
+
+class SendSticker(ToolArgs):
+    """
+    Send a sticker to a chat.
+    
+    Accepts either a sticker file path or a sticker ID from a sticker set.
+    For animated stickers, make sure the file is in .tgs format.
+    For video stickers, make sure the file is in .webm format.
+    """
+
+    dialog_id: int
+    sticker_path: str  # Local path to sticker file or sticker ID
+    reply_to: int | None = None  # Optional message ID to reply to
+    silent: bool = False
+
+
+@tool_runner.register
+async def send_sticker(
+    args: SendSticker,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SendSticker] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Check if input is a file path or sticker ID
+            if args.sticker_path.isdigit():
+                # It's a sticker ID, need to get the actual sticker first
+                from telethon.tl.types import InputDocument
+                sticker = InputDocument(
+                    id=int(args.sticker_path),
+                    access_hash=0,  # This will be filled by Telethon
+                    file_reference=b''  # This will be filled by Telethon
+                )
+            else:
+                # It's a file path
+                sticker = args.sticker_path
+
+            message = await client.send_file(
+                entity=args.dialog_id,
+                file=sticker,
+                silent=args.silent,
+                reply_to=args.reply_to,
+                attributes=[DocumentAttributeSticker(
+                    alt="🔥",  # Default emoji
+                    stickerset=None  # Not part of a set
+                )]
+            )
+            response.append(TextContent(type="text", 
+                text=f"Sticker sent successfully. Message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send sticker: {str(e)}"))
+
+    return response
+
+
+### SendGIF ###
+
+
+class SendGIF(ToolArgs):
+    """
+    Send a GIF to a chat.
+    
+    Accepts a local file path or URL to a GIF file.
+    The file will be sent as an animated GIF (video note in Telegram).
+    """
+
+    dialog_id: int
+    gif_path: str  # Local file path or URL to GIF
+    caption: str | None = None
+    reply_to: int | None = None
+    silent: bool = False
+
+
+@tool_runner.register
+async def send_gif(
+    args: SendGIF,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SendGIF] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            from telethon.tl.types import DocumentAttributeAnimated
+            
+            message = await client.send_file(
+                entity=args.dialog_id,
+                file=args.gif_path,
+                caption=args.caption,
+                silent=args.silent,
+                reply_to=args.reply_to,
+                attributes=[DocumentAttributeAnimated()]  # This marks it as a GIF
+            )
+            response.append(TextContent(type="text", 
+                text=f"GIF sent successfully. Message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send GIF: {str(e)}"))
+
+    return response
+
+
+### UploadMedia ###
+
+
+class UploadMedia(ToolArgs):
+    """
+    Upload media to Telegram servers without sending it to any chat.
+    
+    This is useful when you need to reuse the same media file multiple times,
+    as it prevents uploading the same file repeatedly.
+    Returns the file ID that can be used in other operations.
+    """
+
+    file_path: str  # Local path to the file
+    file_name: str | None = None  # Optional custom name for the file
+    progress_callback: bool = True  # Whether to show upload progress
+
+
+@tool_runner.register
+async def upload_media(
+    args: UploadMedia,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[UploadMedia] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Define progress callback if requested
+            async def progress_callback(current, total):
+                percentage = (current / total) * 100
+                if percentage % 10 == 0:  # Update every 10%
+                    logger.info(f"Upload progress: {percentage:.1f}%")
+
+            file = await client.upload_file(
+                file=args.file_path,
+                file_name=args.file_name,
+                progress_callback=progress_callback if args.progress_callback else None
+            )
+            
+            response.append(TextContent(type="text", 
+                text=f"File uploaded successfully. File ID: {file.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to upload file: {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
