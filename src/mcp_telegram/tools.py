@@ -315,6 +315,149 @@ async def unpin_message(
     return response
 
 
+### GetMessageReactions ###
+
+
+class GetMessageReactions(ToolArgs):
+    """
+    Get all reactions for a specific message.
+    
+    Returns a list of reactions and the count of each reaction on the message.
+    """
+
+    dialog_id: int
+    message_id: int
+
+
+@tool_runner.register
+async def get_message_reactions(
+    args: GetMessageReactions,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetMessageReactions] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            message = await client.get_messages(args.dialog_id, ids=args.message_id)
+            if not message:
+                response.append(TextContent(type="text", text="Message not found"))
+                return response
+            
+            if not hasattr(message, 'reactions') or not message.reactions:
+                response.append(TextContent(type="text", text="No reactions on this message"))
+                return response
+            
+            reaction_list = []
+            for reaction in message.reactions.results:
+                count = reaction.count
+                reaction_data = reaction.reaction
+                if hasattr(reaction_data, 'emoticon'):
+                    reaction_list.append(f"{reaction_data.emoticon}: {count}")
+                elif hasattr(reaction_data, 'custom_emoji_id'):
+                    reaction_list.append(f"Custom emoji {reaction_data.custom_emoji_id}: {count}")
+            
+            response.append(TextContent(type="text", text="Reactions on message:\n" + "\n".join(reaction_list)))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get message reactions: {str(e)}"))
+
+    return response
+
+
+### ReactToMessage ###
+
+
+class ReactToMessage(ToolArgs):
+    """
+    Add or remove a reaction to/from a message.
+    
+    You can react with either an emoji or a custom emoji ID.
+    Set add_reaction to False to remove the reaction instead of adding it.
+    """
+
+    dialog_id: int
+    message_id: int
+    emoji: str  # Can be either an emoji or a custom emoji ID
+    add_reaction: bool = True  # True to add reaction, False to remove
+    big: bool = False  # True to send a big reaction
+
+
+@tool_runner.register
+async def react_to_message(
+    args: ReactToMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[ReactToMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Creating the reaction object
+            from telethon.tl.types import ReactionEmoji, ReactionCustomEmoji
+            
+            # Check if it's a custom emoji ID (numeric string) or regular emoji
+            if args.emoji.isdigit():
+                reaction = ReactionCustomEmoji(custom_emoji_id=int(args.emoji))
+            else:
+                reaction = ReactionEmoji(emoticon=args.emoji)
+            
+            await client.send_reaction(
+                entity=args.dialog_id,
+                message=args.message_id,
+                reaction=reaction if args.add_reaction else None,
+                big=args.big
+            )
+            
+            action = "added to" if args.add_reaction else "removed from"
+            response.append(TextContent(type="text", 
+                text=f"Reaction {args.emoji} successfully {action} message {args.message_id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to handle reaction: {str(e)}"))
+
+    return response
+
+
+### ReplyToMessage ###
+
+
+class ReplyToMessage(ToolArgs):
+    """
+    Reply to a specific message in a chat.
+    
+    Creates a new message that is a reply to the specified message.
+    You can optionally send the reply silently (without notification).
+    """
+
+    dialog_id: int
+    message_id: int  # The message to reply to
+    text: str  # The reply text
+    silent: bool = False  # Send silently (no notification)
+
+
+@tool_runner.register
+async def reply_to_message(
+    args: ReplyToMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[ReplyToMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            message = await client.send_message(
+                entity=args.dialog_id,
+                message=args.text,
+                reply_to=args.message_id,
+                silent=args.silent
+            )
+            response.append(TextContent(type="text", 
+                text=f"Reply sent successfully. New message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send reply: {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
