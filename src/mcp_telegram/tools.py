@@ -1190,6 +1190,386 @@ async def get_chat_permissions(
     return response
 
 
+### UpdateChatPhoto ###
+
+
+class UpdateChatPhoto(ToolArgs):
+    """
+    Update a chat's profile photo.
+    
+    Changes the profile photo of a group or channel.
+    Accepts a local file path or URL to the new photo.
+    """
+
+    chat_id: int
+    photo_path: str  # Local file path or URL to photo
+
+
+@tool_runner.register
+async def update_chat_photo(
+    args: UpdateChatPhoto,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[UpdateChatPhoto] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            await client(functions.channels.EditPhotoRequest(
+                channel=chat,
+                photo=await client.upload_file(args.photo_path)
+            ))
+            
+            response.append(TextContent(type="text", 
+                text=f"Successfully updated chat photo"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to update chat photo: {str(e)}"))
+
+    return response
+
+
+### UpdateChatInfo ###
+
+
+class UpdateChatInfo(ToolArgs):
+    """
+    Update a chat's basic information.
+    
+    Changes the title and/or description of a group or channel.
+    At least one of title or about must be provided.
+    """
+
+    chat_id: int
+    title: str | None = None  # New chat title
+    about: str | None = None  # New chat description/about text
+
+
+@tool_runner.register
+async def update_chat_info(
+    args: UpdateChatInfo,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[UpdateChatInfo] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            updates = []
+
+            if args.title:
+                await client(functions.channels.EditTitleRequest(
+                    channel=chat,
+                    title=args.title
+                ))
+                updates.append("title")
+
+            if args.about:
+                await client(functions.channels.EditAboutRequest(
+                    channel=chat,
+                    about=args.about
+                ))
+                updates.append("description")
+
+            if updates:
+                response.append(TextContent(type="text", 
+                    text=f"Successfully updated chat {', '.join(updates)}"))
+            else:
+                response.append(TextContent(type="text", 
+                    text="No updates provided. Specify either title or about"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to update chat info: {str(e)}"))
+
+    return response
+
+
+### SetChatPermissions ###
+
+
+class SetChatPermissions(ToolArgs):
+    """
+    Set default permissions for all members in a chat.
+    
+    Updates the default permissions for non-admin members in a group or channel.
+    Permissions not specified will retain their current values.
+    """
+
+    chat_id: int
+    send_messages: bool | None = None
+    send_media: bool | None = None
+    send_stickers: bool | None = None
+    send_gifs: bool | None = None
+    send_games: bool | None = None
+    send_inline: bool | None = None
+    embed_links: bool | None = None
+    send_polls: bool | None = None
+    change_info: bool | None = None
+    invite_users: bool | None = None
+    pin_messages: bool | None = None
+
+
+@tool_runner.register
+async def set_chat_permissions(
+    args: SetChatPermissions,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SetChatPermissions] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            
+            # Get current permissions first
+            full_chat = await client(functions.channels.GetFullChannel(channel=chat))
+            current_rights = full_chat.full_chat.default_banned_rights
+
+            # Update only specified permissions
+            new_rights = types.ChatBannedRights(
+                until_date=None,
+                send_messages=not args.send_messages if args.send_messages is not None else current_rights.send_messages,
+                send_media=not args.send_media if args.send_media is not None else current_rights.send_media,
+                send_stickers=not args.send_stickers if args.send_stickers is not None else current_rights.send_stickers,
+                send_gifs=not args.send_gifs if args.send_gifs is not None else current_rights.send_gifs,
+                send_games=not args.send_games if args.send_games is not None else current_rights.send_games,
+                send_inline=not args.send_inline if args.send_inline is not None else current_rights.send_inline,
+                embed_links=not args.embed_links if args.embed_links is not None else current_rights.embed_links,
+                send_polls=not args.send_polls if args.send_polls is not None else current_rights.send_polls,
+                change_info=not args.change_info if args.change_info is not None else current_rights.change_info,
+                invite_users=not args.invite_users if args.invite_users is not None else current_rights.invite_users,
+                pin_messages=not args.pin_messages if args.pin_messages is not None else current_rights.pin_messages
+            )
+
+            await client(functions.messages.EditChatDefaultBannedRights(
+                peer=chat,
+                banned_rights=new_rights
+            ))
+
+            response.append(TextContent(type="text", text="Successfully updated chat permissions"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to set chat permissions: {str(e)}"))
+
+    return response
+
+
+### ManageUser ###
+
+
+class ManageUser(ToolArgs):
+    """
+    Manage a user in a chat (kick, ban, or unban).
+    
+    Allows kicking or banning users from a group or channel.
+    Can also be used to unban previously banned users.
+    """
+
+    chat_id: int
+    user_id: int | str  # User ID or username to manage
+    action: str  # One of: kick, ban, unban
+    ban_duration: int | None = None  # Duration in seconds for temporary bans
+
+
+@tool_runner.register
+async def manage_user(
+    args: ManageUser,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[ManageUser] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            user = await client.get_entity(args.user_id)
+
+            if args.action.lower() == "kick":
+                await client.kick_participant(chat, user)
+                response.append(TextContent(type="text", 
+                    text=f"Successfully kicked user {user.id} from the chat"))
+
+            elif args.action.lower() == "ban":
+                rights = types.ChatBannedRights(
+                    until_date=None if not args.ban_duration else int(time.time() + args.ban_duration),
+                    view_messages=True
+                )
+                await client(functions.channels.EditBannedRequest(
+                    channel=chat,
+                    participant=user,
+                    banned_rights=rights
+                ))
+                duration_text = " permanently" if not args.ban_duration else f" for {args.ban_duration} seconds"
+                response.append(TextContent(type="text", 
+                    text=f"Successfully banned user {user.id}{duration_text}"))
+
+            elif args.action.lower() == "unban":
+                rights = types.ChatBannedRights(
+                    until_date=None,
+                    view_messages=False
+                )
+                await client(functions.channels.EditBannedRequest(
+                    channel=chat,
+                    participant=user,
+                    banned_rights=rights
+                ))
+                response.append(TextContent(type="text", 
+                    text=f"Successfully unbanned user {user.id}"))
+
+            else:
+                response.append(TextContent(type="text", 
+                    text="Invalid action. Use 'kick', 'ban', or 'unban'"))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to {args.action} user: {str(e)}"))
+
+    return response
+
+
+### GetBannedUsers ###
+
+
+class GetBannedUsers(ToolArgs):
+    """
+    Get a list of banned users in a chat.
+    
+    Retrieves all users that are currently banned from a group or channel.
+    """
+
+    chat_id: int
+    limit: int = 100  # Maximum number of banned users to retrieve
+
+
+@tool_runner.register
+async def get_banned_users(
+    args: GetBannedUsers,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetBannedUsers] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            
+            banned = await client(functions.channels.GetParticipants(
+                channel=chat,
+                filter=types.ChannelParticipantsBanned(),
+                offset=0,
+                limit=args.limit,
+                hash=0
+            ))
+
+            if not banned.participants:
+                response.append(TextContent(type="text", text="No banned users found"))
+                return response
+
+            banned_info = []
+            for participant in banned.participants:
+                user = next((u for u in banned.users if u.id == participant.user_id), None)
+                if user:
+                    username = f"@{user.username}" if user.username else "No username"
+                    name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+                    banned_info.append(f"{name} ({username}) - ID: {user.id}")
+
+            response.append(TextContent(type="text", 
+                text=f"Banned users ({len(banned_info)}):\n" + "\n".join(banned_info)))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get banned users: {str(e)}"))
+
+    return response
+
+
+### LeaveChat ###
+
+
+class LeaveChat(ToolArgs):
+    """
+    Leave a chat.
+    
+    Allows the bot to leave a group, channel, or chat.
+    """
+
+    chat_id: int
+
+
+@tool_runner.register
+async def leave_chat(
+    args: LeaveChat,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[LeaveChat] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            await client(functions.channels.LeaveChannel(
+                channel=chat
+            ))
+            response.append(TextContent(type="text", text="Successfully left the chat"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to leave chat: {str(e)}"))
+
+    return response
+
+
+### GetChatInviteLink ###
+
+
+class GetChatInviteLink(ToolArgs):
+    """
+    Get or create an invite link for a chat.
+    
+    Generates a new invite link or retrieves the existing one.
+    Can optionally create a new link even if one exists.
+    """
+
+    chat_id: int
+    new_link: bool = False  # Whether to generate a new link
+    expire_date: int | None = None  # Optional expiration date (Unix timestamp)
+    usage_limit: int | None = None  # Optional maximum number of users
+
+
+@tool_runner.register
+async def get_chat_invite_link(
+    args: GetChatInviteLink,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetChatInviteLink] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            
+            if args.new_link:
+                # Generate new invite link with optional parameters
+                result = await client(functions.messages.ExportChatInviteRequest(
+                    peer=chat,
+                    expire_date=args.expire_date,
+                    usage_limit=args.usage_limit
+                ))
+                response.append(TextContent(type="text", 
+                    text=f"Generated new invite link: {result.link}"))
+            else:
+                # Get existing invite link
+                full_chat = await client(functions.channels.GetFullChannel(
+                    channel=chat
+                ))
+                if hasattr(full_chat.full_chat, 'exported_invite') and full_chat.full_chat.exported_invite:
+                    response.append(TextContent(type="text", 
+                        text=f"Current invite link: {full_chat.full_chat.exported_invite.link}"))
+                else:
+                    response.append(TextContent(type="text", 
+                        text="No invite link exists. Set new_link=True to generate one."))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get/create invite link: {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
