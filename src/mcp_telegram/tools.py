@@ -458,6 +458,213 @@ async def reply_to_message(
     return response
 
 
+### SendPhoto ###
+
+
+class SendPhoto(ToolArgs):
+    """
+    Send a photo to a chat.
+    
+    Accepts a local file path or URL to the image.
+    You can optionally include a caption and send it silently.
+    """
+
+    dialog_id: int
+    photo_path: str  # Local file path or URL
+    caption: str | None = None
+    silent: bool = False
+    reply_to: int | None = None  # Optional message ID to reply to
+
+
+@tool_runner.register
+async def send_photo(
+    args: SendPhoto,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SendPhoto] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            message = await client.send_file(
+                entity=args.dialog_id,
+                file=args.photo_path,
+                caption=args.caption,
+                silent=args.silent,
+                reply_to=args.reply_to,
+                force_document=False
+            )
+            response.append(TextContent(type="text", 
+                text=f"Photo sent successfully. Message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send photo: {str(e)}"))
+
+    return response
+
+
+### SendDocument ###
+
+
+class SendDocument(ToolArgs):
+    """
+    Send a document/file to a chat.
+    
+    Accepts a local file path or URL.
+    You can optionally include a caption and send it silently.
+    The file will be sent as a document, preserving its original format.
+    """
+
+    dialog_id: int
+    file_path: str  # Local file path or URL
+    caption: str | None = None
+    silent: bool = False
+    reply_to: int | None = None  # Optional message ID to reply to
+    thumbnail: str | None = None  # Optional thumbnail image path
+
+
+@tool_runner.register
+async def send_document(
+    args: SendDocument,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SendDocument] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            message = await client.send_file(
+                entity=args.dialog_id,
+                file=args.file_path,
+                caption=args.caption,
+                silent=args.silent,
+                reply_to=args.reply_to,
+                thumb=args.thumbnail,
+                force_document=True
+            )
+            response.append(TextContent(type="text", 
+                text=f"Document sent successfully. Message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send document: {str(e)}"))
+
+    return response
+
+
+### SendVoice ###
+
+
+class SendVoice(ToolArgs):
+    """
+    Send a voice message to a chat.
+    
+    Accepts a local file path or URL to an audio file.
+    The file will be sent as a voice message (round message format).
+    Supports common audio formats like mp3, ogg, m4a.
+    """
+
+    dialog_id: int
+    voice_path: str  # Local file path or URL to audio file
+    caption: str | None = None
+    silent: bool = False
+    reply_to: int | None = None  # Optional message ID to reply to
+
+
+@tool_runner.register
+async def send_voice(
+    args: SendVoice,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SendVoice] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Import here to avoid issues with type checking
+            from telethon.tl.types import InputMediaUploadedDocument
+            from telethon.tl.types import DocumentAttributeAudio
+            
+            message = await client.send_file(
+                entity=args.dialog_id,
+                file=args.voice_path,
+                voice_note=True,  # This makes it appear as a voice message
+                caption=args.caption,
+                silent=args.silent,
+                reply_to=args.reply_to,
+                attributes=[DocumentAttributeAudio(
+                    duration=0,  # Duration will be calculated automatically
+                    voice=True  # This marks it as a voice message
+                )]
+            )
+            response.append(TextContent(type="text", 
+                text=f"Voice message sent successfully. Message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send voice message: {str(e)}"))
+
+    return response
+
+
+### SendVideo ###
+
+
+class SendVideo(ToolArgs):
+    """
+    Send a video to a chat.
+    
+    Accepts a local file path or URL to a video file.
+    You can optionally include a caption, thumbnail, and other video-specific attributes.
+    """
+
+    dialog_id: int
+    video_path: str  # Local file path or URL to video file
+    caption: str | None = None
+    thumbnail: str | None = None  # Optional thumbnail image path
+    duration: int | None = None  # Duration in seconds
+    width: int | None = None  # Video width
+    height: int | None = None  # Video height
+    supports_streaming: bool = True
+    silent: bool = False
+    reply_to: int | None = None  # Optional message ID to reply to
+
+
+@tool_runner.register
+async def send_video(
+    args: SendVideo,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SendVideo] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Import here to avoid issues with type checking
+            from telethon.tl.types import DocumentAttributeVideo
+            
+            # Prepare video attributes
+            video_attributes = []
+            if any([args.duration, args.width, args.height, args.supports_streaming]):
+                video_attributes.append(DocumentAttributeVideo(
+                    duration=args.duration or 0,
+                    w=args.width or 0,
+                    h=args.height or 0,
+                    supports_streaming=args.supports_streaming
+                ))
+            
+            message = await client.send_file(
+                entity=args.dialog_id,
+                file=args.video_path,
+                caption=args.caption,
+                thumb=args.thumbnail,
+                attributes=video_attributes if video_attributes else None,
+                silent=args.silent,
+                reply_to=args.reply_to
+            )
+            response.append(TextContent(type="text", 
+                text=f"Video sent successfully. Message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send video: {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
