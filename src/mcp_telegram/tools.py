@@ -98,6 +98,104 @@ async def list_dialogs(
     return response
 
 
+### SendMessage ###
+
+
+class SendMessage(ToolArgs):
+    """
+    Send a message to a specified dialog, chat, or channel.
+    
+    Allows sending text messages to a specified chat identified by its dialog_id.
+    The message will be sent as plain text.
+    """
+
+    dialog_id: int
+    message: str
+
+
+@tool_runner.register
+async def send_message(
+    args: SendMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[SendMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            message = await client.send_message(args.dialog_id, args.message)
+            response.append(TextContent(type="text", text=f"Message sent successfully. Message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to send message: {str(e)}"))
+
+    return response
+
+
+### DeleteMessage ###
+
+
+class DeleteMessage(ToolArgs):
+    """
+    Delete a specific message from a dialog, chat, or channel.
+    
+    Requires both the dialog_id and the specific message_id to delete.
+    """
+
+    dialog_id: int
+    message_id: int
+
+
+@tool_runner.register
+async def delete_message(
+    args: DeleteMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[DeleteMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            await client.delete_messages(args.dialog_id, args.message_id)
+            response.append(TextContent(type="text", text=f"Successfully deleted message {args.message_id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to delete message: {str(e)}"))
+
+    return response
+
+
+### EditMessage ###
+
+
+class EditMessage(ToolArgs):
+    """
+    Edit an existing message in a dialog, chat, or channel.
+    
+    Requires the dialog_id, message_id, and the new text to replace the original message.
+    """
+
+    dialog_id: int
+    message_id: int
+    new_text: str
+
+
+@tool_runner.register
+async def edit_message(
+    args: EditMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[EditMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            await client.edit_message(args.dialog_id, args.message_id, text=args.new_text)
+            response.append(TextContent(type="text", text=f"Successfully edited message {args.message_id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to edit message: {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
