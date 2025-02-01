@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.json import JSON
 from rich.table import Table
 
-from mcp_telegram import server
+from mcp_telegram import server, telegram
 
 logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
@@ -22,6 +22,22 @@ def typer_async(f):  # noqa: ANN001, ANN201
         return asyncio.run(f(*args, **kwargs))
 
     return wrapper
+
+
+@app.command()
+@typer_async
+async def connect(
+    phone_number: str = typer.Option(help="Your phone number (international format)"),
+) -> None:
+    """Connect to Telegram."""
+    await telegram.connect_to_telegram(None, None, phone_number)
+
+
+@app.command()
+@typer_async
+async def disconnect() -> None:
+    """Disconnect from Telegram."""
+    await telegram.logout_from_telegram()
 
 
 @app.command()
@@ -53,7 +69,10 @@ async def call_tool(
 ) -> None:
     """Handle tool calls for command line run."""
     for response in await server.call_tool(name, json.loads(arguments)):
-        typer.echo(response)
+        if hasattr(response, "text"):
+            typer.echo(response.text)
+        else:
+            typer.echo(str(response))
 
 
 if __name__ == "__main__":

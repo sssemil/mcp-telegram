@@ -20,7 +20,7 @@ class TelegramSettings(BaseSettings):
         env_file = ".env"
 
 
-async def connect_to_telegram(api_id: str, api_hash: str, phone_number: str) -> None:
+async def connect_to_telegram(api_id: str | None, api_hash: str | None, phone_number: str) -> None:
     user_session = create_client(api_id=api_id, api_hash=api_hash)
     await user_session.connect()
 
