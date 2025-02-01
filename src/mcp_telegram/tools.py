@@ -196,6 +196,125 @@ async def edit_message(
     return response
 
 
+### ForwardMessage ###
+
+
+class ForwardMessage(ToolArgs):
+    """
+    Forward a message from one chat to another.
+    
+    Requires the source chat ID, message ID to forward, and the destination chat ID.
+    Optionally, you can disable notification for the forwarded message.
+    """
+
+    from_dialog_id: int
+    message_id: int
+    to_dialog_id: int
+    silent: bool = False
+
+
+@tool_runner.register
+async def forward_message(
+    args: ForwardMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[ForwardMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            message = await client.forward_messages(
+                entity=args.to_dialog_id,
+                messages=args.message_id,
+                from_peer=args.from_dialog_id,
+                silent=args.silent
+            )
+            response.append(TextContent(type="text", 
+                text=f"Message forwarded successfully. New message ID: {message.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to forward message: {str(e)}"))
+
+    return response
+
+
+### PinMessage ###
+
+
+class PinMessage(ToolArgs):
+    """
+    Pin a message in a chat.
+    
+    Requires the chat ID and message ID to pin.
+    Optionally, you can disable notification for the pinned message
+    and pin the message silently.
+    """
+
+    dialog_id: int
+    message_id: int
+    notify: bool = True
+    pm_oneside: bool = False  # For private chats, pin only for the user
+
+
+@tool_runner.register
+async def pin_message(
+    args: PinMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[PinMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            await client.pin_message(
+                entity=args.dialog_id,
+                message=args.message_id,
+                notify=args.notify,
+                pm_oneside=args.pm_oneside
+            )
+            response.append(TextContent(type="text", text=f"Successfully pinned message {args.message_id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to pin message: {str(e)}"))
+
+    return response
+
+
+### UnpinMessage ###
+
+
+class UnpinMessage(ToolArgs):
+    """
+    Unpin a message from a chat.
+    
+    Requires the chat ID and optionally the specific message ID to unpin.
+    If no message ID is provided, all pinned messages will be unpinned.
+    """
+
+    dialog_id: int
+    message_id: int | None = None  # If None, unpin all messages
+
+
+@tool_runner.register
+async def unpin_message(
+    args: UnpinMessage,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[UnpinMessage] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            await client.unpin_message(
+                entity=args.dialog_id,
+                message=args.message_id
+            )
+            msg = "Successfully unpinned all messages" if args.message_id is None else f"Successfully unpinned message {args.message_id}"
+            response.append(TextContent(type="text", text=msg))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to unpin message(s): {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
