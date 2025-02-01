@@ -869,6 +869,327 @@ async def upload_media(
     return response
 
 
+### CreateGroup ###
+
+
+class CreateGroup(ToolArgs):
+    """
+    Create a new Telegram group.
+    
+    Creates a new group with specified title and optional description.
+    You can make it a supergroup (recommended for larger groups) and add users immediately.
+    """
+
+    title: str
+    users: list[str | int] = []  # List of usernames or user IDs to add
+    about: str | None = None  # Group description
+    supergroup: bool = True  # Whether to create a supergroup
+    ttl_period: int | None = None  # Optional message auto-delete time in seconds
+
+
+@tool_runner.register
+async def create_group(
+    args: CreateGroup,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[CreateGroup] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Create the group
+            group = await client.create_group(
+                title=args.title,
+                users=args.users
+            )
+
+            if args.supergroup:
+                # Convert to supergroup if requested
+                await client(functions.messages.MigrateChat(
+                    chat_id=group.chat_id
+                ))
+                # Get the new supergroup
+                group = await client.get_entity(group.id)
+
+            if args.about:
+                # Set the group description
+                await client(functions.messages.EditChatAbout(
+                    peer=group,
+                    about=args.about
+                ))
+
+            if args.ttl_period:
+                # Set message auto-delete timer
+                await client(functions.messages.SetHistoryTTL(
+                    peer=group,
+                    period=args.ttl_period
+                ))
+
+            response.append(TextContent(type="text", 
+                text=f"Group '{args.title}' created successfully. ID: {group.id}"))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to create group: {str(e)}"))
+
+    return response
+
+
+### CreateChannel ###
+
+
+class CreateChannel(ToolArgs):
+    """
+    Create a new Telegram channel.
+    
+    Creates a broadcast channel with specified title and optional description.
+    You can make it private and add users immediately.
+    """
+
+    title: str
+    about: str | None = None  # Channel description
+    private: bool = False  # Whether the channel should be private
+    users: list[str | int] = []  # List of usernames or user IDs to add as admins
+    ttl_period: int | None = None  # Optional message auto-delete time in seconds
+
+
+@tool_runner.register
+async def create_channel(
+    args: CreateChannel,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[CreateChannel] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Create the channel
+            result = await client(functions.channels.CreateChannel(
+                title=args.title,
+                about=args.about or "",
+                megagroup=False,  # False for channel, True for supergroup
+                broadcast=True,  # True for channel
+                for_import=False
+            ))
+
+            channel = result.chats[0]
+
+            # Add users as admins if specified
+            for user in args.users:
+                try:
+                    user_entity = await client.get_entity(user)
+                    await client(functions.channels.EditAdmin(
+                        channel=channel,
+                        user_id=user_entity,
+                        admin_rights=types.ChatAdminRights(
+                            post_messages=True,
+                            edit_messages=True,
+                            delete_messages=True,
+                            invite_users=True,
+                            change_info=True,
+                        ),
+                        rank="Admin"
+                    ))
+                except Exception as e:
+                    response.append(TextContent(type="text", 
+                        text=f"Warning: Failed to add user {user} as admin: {str(e)}"))
+
+            if args.ttl_period:
+                # Set message auto-delete timer
+                await client(functions.messages.SetHistoryTTL(
+                    peer=channel,
+                    period=args.ttl_period
+                ))
+
+            # Generate invite link if it's private
+            if args.private:
+                invite_link = await client(functions.messages.ExportChatInvite(
+                    peer=channel,
+                    legacy_revoke_permanent=False
+                ))
+                response.append(TextContent(type="text", 
+                    text=f"Channel '{args.title}' created successfully.\n"
+                         f"ID: {channel.id}\n"
+                         f"Invite Link: {invite_link.link}"))
+            else:
+                response.append(TextContent(type="text", 
+                    text=f"Channel '{args.title}' created successfully.\n"
+                         f"ID: {channel.id}"))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to create channel: {str(e)}"))
+
+    return response
+
+
+### InviteToChat ###
+
+
+class InviteToChat(ToolArgs):
+    """
+    Invite users to a chat.
+    
+    Invites one or more users to a group or channel.
+    Users can be specified by username or user ID.
+    """
+
+    chat_id: int
+    users: list[str | int]  # List of usernames or user IDs to invite
+
+
+@tool_runner.register
+async def invite_to_chat(
+    args: InviteToChat,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[InviteToChat] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            results = []
+            
+            for user in args.users:
+                try:
+                    user_entity = await client.get_entity(user)
+                    await client(functions.channels.InviteToChannel(
+                        channel=chat,
+                        users=[user_entity]
+                    ))
+                    results.append(f"Successfully invited {user}")
+                except Exception as e:
+                    results.append(f"Failed to invite {user}: {str(e)}")
+            
+            response.append(TextContent(type="text", text="\n".join(results)))
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to process invites: {str(e)}"))
+
+    return response
+
+
+### GetChatMembers ###
+
+
+class GetChatMembers(ToolArgs):
+    """
+    Get a list of chat members.
+    
+    Retrieves members of a group or channel with their roles (admin, member, etc.).
+    Can filter by role and search by name.
+    """
+
+    chat_id: int
+    filter: str = "all"  # One of: all, admin, bot, banned, restricted
+    search: str | None = None  # Optional search query for usernames/names
+    limit: int = 100  # Maximum number of members to retrieve
+
+
+@tool_runner.register
+async def get_chat_members(
+    args: GetChatMembers,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetChatMembers] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Map filter string to appropriate filter object
+            filter_map = {
+                "admin": types.ChannelParticipantsAdmins(),
+                "bot": types.ChannelParticipantsBots(),
+                "banned": types.ChannelParticipantsBanned(),
+                "restricted": types.ChannelParticipantsRestricted(),
+                "all": types.ChannelParticipantsSearch(q="")
+            }
+            
+            filter_obj = filter_map.get(args.filter.lower(), filter_map["all"])
+            if args.search and args.filter.lower() == "all":
+                filter_obj = types.ChannelParticipantsSearch(q=args.search)
+
+            members = await client(functions.channels.GetParticipants(
+                channel=args.chat_id,
+                filter=filter_obj,
+                offset=0,
+                limit=args.limit,
+                hash=0
+            ))
+
+            # Format member information
+            member_info = []
+            for participant in members.participants:
+                user = next((u for u in members.users if u.id == participant.user_id), None)
+                if user:
+                    role = "Owner" if isinstance(participant, types.ChannelParticipantCreator) else \
+                          "Admin" if isinstance(participant, types.ChannelParticipantAdmin) else \
+                          "Member"
+                    username = f"@{user.username}" if user.username else "No username"
+                    name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+                    member_info.append(f"{name} ({username}) - {role}")
+
+            if member_info:
+                response.append(TextContent(type="text", 
+                    text=f"Chat members ({len(member_info)}):\n" + "\n".join(member_info)))
+            else:
+                response.append(TextContent(type="text", text="No members found matching criteria"))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get chat members: {str(e)}"))
+
+    return response
+
+
+### GetChatPermissions ###
+
+
+class GetChatPermissions(ToolArgs):
+    """
+    Get chat permissions.
+    
+    Retrieves the current permission settings for a group or channel.
+    """
+
+    chat_id: int
+
+
+@tool_runner.register
+async def get_chat_permissions(
+    args: GetChatPermissions,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetChatPermissions] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            chat = await client.get_entity(args.chat_id)
+            full_chat = await client(functions.channels.GetFullChannel(
+                channel=chat
+            ))
+
+            # Get default permissions
+            default_rights = full_chat.full_chat.default_banned_rights
+            
+            # Format permissions
+            permissions = [
+                f"Send Messages: {not default_rights.send_messages}",
+                f"Send Media: {not default_rights.send_media}",
+                f"Send Stickers & GIFs: {not default_rights.send_gifs}",
+                f"Send Polls: {not default_rights.send_polls}",
+                f"Embed Links: {not default_rights.embed_links}",
+                f"Invite Users: {not default_rights.invite_users}",
+                f"Pin Messages: {not default_rights.pin_messages}",
+                f"Change Info: {not default_rights.change_info}"
+            ]
+
+            response.append(TextContent(type="text", 
+                text=f"Chat Permissions for {chat.title}:\n" + "\n".join(permissions)))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get chat permissions: {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
