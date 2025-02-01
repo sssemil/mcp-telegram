@@ -1570,6 +1570,242 @@ async def get_chat_invite_link(
     return response
 
 
+### GetUserInfo ###
+
+
+class GetUserInfo(ToolArgs):
+    """
+    Get detailed information about a Telegram user.
+    
+    Retrieves user details including name, username, online status,
+    bio, and other public information.
+    """
+
+    user_id: int | str  # User ID or username
+    fetch_full_info: bool = True  # Whether to fetch full user profile info
+
+
+@tool_runner.register
+async def get_user_info(
+    args: GetUserInfo,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetUserInfo] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Get basic user info
+            user = await client.get_entity(args.user_id)
+            
+            # Prepare basic info
+            user_info = [
+                f"ID: {user.id}",
+                f"First Name: {user.first_name or 'Not set'}",
+                f"Last Name: {user.last_name or 'Not set'}",
+                f"Username: @{user.username or 'Not set'}",
+                f"Bot: {'Yes' if user.bot else 'No'}",
+                f"Scam: {'Yes' if user.scam else 'No'}",
+                f"Fake: {'Yes' if user.fake else 'No'}",
+                f"Deleted: {'Yes' if user.deleted else 'No'}",
+                f"Verified: {'Yes' if user.verified else 'No'}"
+            ]
+
+            # Get full user info if requested
+            if args.fetch_full_info:
+                try:
+                    full_user = await client(functions.users.GetFullUserRequest(user))
+                    if full_user and full_user.full_user:
+                        user_info.extend([
+                            f"\nFull Profile Info:",
+                            f"About: {full_user.full_user.about or 'Not set'}",
+                            f"Common Chats Count: {full_user.full_user.common_chats_count}",
+                            f"Blocked: {'Yes' if full_user.full_user.blocked else 'No'}",
+                            f"Can Pin Message: {'Yes' if full_user.full_user.can_pin_message else 'No'}",
+                            f"Phone Calls Available: {'Yes' if full_user.full_user.phone_calls_available else 'No'}",
+                            f"Phone Calls Private: {'Yes' if full_user.full_user.phone_calls_private else 'No'}",
+                            f"Mutual Contact: {'Yes' if full_user.full_user.mutual_contact else 'No'}"
+                        ])
+                except Exception as e:
+                    user_info.append(f"\nFailed to fetch full profile info: {str(e)}")
+
+            response.append(TextContent(type="text", text="\n".join(user_info)))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get user info: {str(e)}"))
+
+    return response
+
+
+### GetUserPhotos ###
+
+
+class GetUserPhotos(ToolArgs):
+    """
+    Get a user's profile photos.
+    
+    Retrieves all profile photos of a specified user.
+    You can limit the number of photos to retrieve and specify
+    whether to download them.
+    """
+
+    user_id: int | str  # User ID or username
+    limit: int = 100  # Maximum number of photos to retrieve
+    download: bool = False  # Whether to download the photos
+    download_path: str | None = None  # Path to save downloaded photos
+
+
+@tool_runner.register
+async def get_user_photos(
+    args: GetUserPhotos,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetUserPhotos] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            # Get user entity
+            user = await client.get_entity(args.user_id)
+            
+            # Get profile photos
+            photos = await client(functions.photos.GetUserPhotosRequest(
+                user_id=user,
+                offset=0,
+                max_id=0,
+                limit=args.limit
+            ))
+
+            if not photos.photos:
+                response.append(TextContent(type="text", text="User has no profile photos"))
+                return response
+
+            # Add basic info about photos
+            response.append(TextContent(type="text", 
+                text=f"Found {len(photos.photos)} profile photos for user {user.id}"))
+
+            # Download photos if requested
+            if args.download:
+                download_path = args.download_path or "."
+                downloaded = []
+                
+                for i, photo in enumerate(photos.photos, 1):
+                    try:
+                        file_path = os.path.join(download_path, f"profile_photo_{user.id}_{i}.jpg")
+                        await client.download_media(photo, file=file_path)
+                        downloaded.append(f"Downloaded photo {i} to {file_path}")
+                    except Exception as e:
+                        downloaded.append(f"Failed to download photo {i}: {str(e)}")
+                
+                response.append(TextContent(type="text", text="\n".join(downloaded)))
+            else:
+                # Just list photo information
+                photo_info = []
+                for i, photo in enumerate(photos.photos, 1):
+                    photo_info.append(
+                        f"Photo {i}:\n"
+                        f"  ID: {photo.id}\n"
+                        f"  Date: {photo.date}\n"
+                        f"  Size: {photo.sizes[-1].w}x{photo.sizes[-1].h}"
+                    )
+                response.append(TextContent(type="text", text="\n".join(photo_info)))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get user photos: {str(e)}"))
+
+    return response
+
+
+### GetBlockedUsers ###
+
+
+class GetBlockedUsers(ToolArgs):
+    """
+    Get a list of users that have been blocked.
+    
+    Retrieves all users that the bot has blocked.
+    """
+
+    limit: int = 100  # Maximum number of users to retrieve
+    offset_id: int = 0  # Start listing from this ID
+
+
+@tool_runner.register
+async def get_blocked_users(
+    args: GetBlockedUsers,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[GetBlockedUsers] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            result = await client(functions.contacts.GetBlockedRequest(
+                offset=args.offset_id,
+                limit=args.limit
+            ))
+
+            if not result.users:
+                response.append(TextContent(type="text", text="No blocked users found"))
+                return response
+
+            blocked_info = []
+            for user in result.users:
+                username = f"@{user.username}" if user.username else "No username"
+                name = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+                blocked_info.append(f"{name} ({username}) - ID: {user.id}")
+
+            response.append(TextContent(type="text", 
+                text=f"Blocked users ({len(blocked_info)}):\n" + "\n".join(blocked_info)))
+
+        except Exception as e:
+            response.append(TextContent(type="text", text=f"Failed to get blocked users: {str(e)}"))
+
+    return response
+
+
+### BlockUser ###
+
+
+class BlockUser(ToolArgs):
+    """
+    Block or unblock a user.
+    
+    Prevents a user from contacting you or adds them back to contacts.
+    """
+
+    user_id: int | str  # User ID or username to block/unblock
+    block: bool = True  # True to block, False to unblock
+
+
+@tool_runner.register
+async def block_user(
+    args: BlockUser,
+) -> t.Sequence[TextContent | ImageContent | EmbeddedResource]:
+    client: TelegramClient
+    logger.info("method[BlockUser] args[%s]", args)
+
+    response: list[TextContent] = []
+    async with create_client() as client:
+        try:
+            user = await client.get_entity(args.user_id)
+            
+            if args.block:
+                await client(functions.contacts.BlockRequest(id=user))
+                response.append(TextContent(type="text", 
+                    text=f"Successfully blocked user {user.id}"))
+            else:
+                await client(functions.contacts.UnblockRequest(id=user))
+                response.append(TextContent(type="text", 
+                    text=f"Successfully unblocked user {user.id}"))
+
+        except Exception as e:
+            action = "block" if args.block else "unblock"
+            response.append(TextContent(type="text", text=f"Failed to {action} user: {str(e)}"))
+
+    return response
+
+
 ### ListMessages ###
 
 
